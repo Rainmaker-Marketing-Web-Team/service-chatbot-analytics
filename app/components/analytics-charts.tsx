@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { SourceBreakdownPoint, TimelinePoint } from "@/app/lib/analytics/types";
 import { formatCompactNumber } from "@/app/lib/utils/format";
@@ -11,7 +12,7 @@ type AnalyticsChartsProps = {
 
 const palette = ["#0b6e4f", "#2d8a66", "#69a77e", "#f4a259", "#d97d54", "#5a6f63"];
 
-export function AnalyticsCharts({ timeline, sourceBreakdown }: AnalyticsChartsProps) {
+function AnalyticsChartsComponent({ timeline, sourceBreakdown }: AnalyticsChartsProps) {
   return (
     <div className="chart-grid" style={{ gridTemplateColumns: "1.4fr 0.9fr", gap: 18 }}>
       <div style={{ minHeight: 280 }}>
@@ -44,3 +45,5 @@ export function AnalyticsCharts({ timeline, sourceBreakdown }: AnalyticsChartsPr
     </div>
   );
 }
+
+export const AnalyticsCharts = memo(AnalyticsChartsComponent);

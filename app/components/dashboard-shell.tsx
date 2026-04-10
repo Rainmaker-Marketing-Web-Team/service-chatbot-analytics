@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import { endOfDay, format, startOfDay, subDays } from "date-fns";
 import { AnalyticsCharts } from "@/app/components/analytics-charts";
 import { DataTable } from "@/app/components/data-table";
@@ -20,13 +20,24 @@ const initialFilters: AnalyticsFilters = {
   search: ""
 };
 
+function areFiltersEqual(left: AnalyticsFilters, right: AnalyticsFilters) {
+  return (
+    left.startDate === right.startDate &&
+    left.endDate === right.endDate &&
+    left.client === right.client &&
+    left.campaign === right.campaign &&
+    left.source === right.source &&
+    left.search === right.search
+  );
+}
+
 export function DashboardShell() {
-  const [filters, setFilters] = useState<AnalyticsFilters>(initialFilters);
+  const [draftFilters, setDraftFilters] = useState<AnalyticsFilters>(initialFilters);
+  const [appliedFilters, setAppliedFilters] = useState<AnalyticsFilters>(initialFilters);
   const [showRows, setShowRows] = useState(false);
   const [data, setData] = useState<AnalyticsDashboardResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const deferredFilters = useDeferredValue(filters);
 
   const loadDashboard = useCallback(
     async (nextFilters: AnalyticsFilters, includeRows: boolean, signal?: AbortSignal) => {
@@ -52,7 +63,9 @@ export function DashboardShell() {
         }
 
         const payload = (await response.json()) as AnalyticsDashboardResponse;
-        setData(payload);
+        startTransition(() => {
+          setData(payload);
+        });
       } catch (requestError) {
         if (signal?.aborted || (requestError instanceof DOMException && requestError.name === "AbortError")) {
           return;
@@ -71,17 +84,22 @@ export function DashboardShell() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadDashboard(deferredFilters, showRows, controller.signal);
+    void loadDashboard(appliedFilters, showRows, controller.signal);
 
     return () => controller.abort();
-  }, [deferredFilters, loadDashboard, showRows]);
+  }, [appliedFilters, loadDashboard, showRows]);
+
+  const hasPendingFilterChanges = useMemo(
+    () => !areFiltersEqual(draftFilters, appliedFilters),
+    [appliedFilters, draftFilters]
+  );
 
   const selectedWindow = useMemo(() => {
-    const from = filters.startDate ? format(new Date(filters.startDate), "MMM d, yyyy") : "Any time";
-    const to = filters.endDate ? format(new Date(filters.endDate), "MMM d, yyyy") : "Today";
+    const from = appliedFilters.startDate ? format(new Date(appliedFilters.startDate), "MMM d, yyyy") : "Any time";
+    const to = appliedFilters.endDate ? format(new Date(appliedFilters.endDate), "MMM d, yyyy") : "Today";
 
     return `${from} to ${to}`;
-  }, [filters.endDate, filters.startDate]);
+  }, [appliedFilters.endDate, appliedFilters.startDate]);
 
   return (
     <main className="dashboard-page">
@@ -107,29 +125,46 @@ export function DashboardShell() {
         </section>
 
         <section className="surface-panel">
-          <div className="stack-row" style={{ justifyContent: "space-between", marginBottom: 16 }}>
-            <div>
-              <div className="kicker">Filters</div>
-              <p className="helper-text" style={{ margin: "6px 0 0" }}>
-                Narrow the view by project, channel, role, date range, or message text.
-              </p>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              setAppliedFilters(draftFilters);
+            }}
+          >
+            <div className="stack-row" style={{ justifyContent: "space-between", marginBottom: 16 }}>
+              <div>
+                <div className="kicker">Filters</div>
+                <p className="helper-text" style={{ margin: "6px 0 0" }}>
+                  Narrow the view, then apply when you&apos;re ready.
+                </p>
+              </div>
+
+              <div className="filter-actions">
+                <button
+                  className="button-secondary"
+                  onClick={() => {
+                    setDraftFilters(initialFilters);
+                    setAppliedFilters(initialFilters);
+                  }}
+                  type="button"
+                >
+                  Reset filters
+                </button>
+                <button className="button-primary" disabled={!hasPendingFilterChanges} type="submit">
+                  Apply filters
+                </button>
+                <button className="button-ghost" onClick={() => setShowRows((current) => !current)} type="button">
+                  {showRows ? "Hide recent messages" : "Show recent messages"}
+                </button>
+              </div>
             </div>
 
-            <div className="filter-actions">
-              <button className="button-secondary" onClick={() => setFilters(initialFilters)} type="button">
-                Reset filters
-              </button>
-              <button className="button-ghost" onClick={() => setShowRows((current) => !current)} type="button">
-                {showRows ? "Hide recent messages" : "Show recent messages"}
-              </button>
-            </div>
-          </div>
-
-          <FilterBar filters={filters} onChange={setFilters} options={data?.filterOptions} />
+            <FilterBar filters={draftFilters} onChange={setDraftFilters} options={data?.filterOptions} />
+          </form>
         </section>
 
         {isLoading && !data ? <LoadingState /> : null}
-        {error ? <ErrorState message={error} onRetry={() => loadDashboard(deferredFilters, showRows)} /> : null}
+        {error ? <ErrorState message={error} onRetry={() => loadDashboard(appliedFilters, showRows)} /> : null}
 
         {data ? (
           <>

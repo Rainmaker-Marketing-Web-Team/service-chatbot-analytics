@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { AnalyticsSummary } from "@/app/lib/analytics/types";
 import { formatCompactNumber, formatPercent } from "@/app/lib/utils/format";
 
@@ -5,7 +6,7 @@ type SummaryCardsProps = {
   summary: AnalyticsSummary;
 };
 
-export function SummaryCards({ summary }: SummaryCardsProps) {
+function SummaryCardsComponent({ summary }: SummaryCardsProps) {
   const cards = [
     {
       label: "Total messages",
@@ -41,3 +42,5 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
     </section>
   );
 }
+
+export const SummaryCards = memo(SummaryCardsComponent);

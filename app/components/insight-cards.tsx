@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { AnalyticsInsightItem } from "@/app/lib/analytics/types";
 import { formatCompactNumber } from "@/app/lib/utils/format";
 
@@ -36,7 +37,7 @@ function InsightListCard({ description, emptyLabel, items, title }: InsightListC
   );
 }
 
-export function InsightCards({ busiestTimes, topQuestions }: InsightCardsProps) {
+function InsightCardsComponent({ busiestTimes, topQuestions }: InsightCardsProps) {
   return (
     <div className="insight-stack">
       <InsightListCard
@@ -55,3 +56,5 @@ export function InsightCards({ busiestTimes, topQuestions }: InsightCardsProps) 
     </div>
   );
 }
+
+export const InsightCards = memo(InsightCardsComponent);

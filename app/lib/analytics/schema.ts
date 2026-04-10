@@ -24,8 +24,7 @@ export const analyticsSchema = {
     .map((value) => value.trim())
     .filter(Boolean),
   pageSize: Number(process.env.ANALYTICS_DASHBOARD_PAGE_SIZE ?? 50),
-  aggregationSampleSize: Number(process.env.ANALYTICS_AGGREGATION_SAMPLE_SIZE ?? 5000),
-  exportLimit: Number(process.env.ANALYTICS_EXPORT_LIMIT ?? 20000)
+  aggregationSampleSize: Number(process.env.ANALYTICS_AGGREGATION_SAMPLE_SIZE ?? 5000)
 } as const;
 
 export type AnalyticsSchema = typeof analyticsSchema;

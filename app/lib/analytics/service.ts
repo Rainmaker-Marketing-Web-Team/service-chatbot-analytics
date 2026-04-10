@@ -407,11 +407,3 @@ export async function getAnalyticsDashboard(filters: AnalyticsFilters): Promise<
     }
   };
 }
-
-export async function getExportRows(filters: AnalyticsFilters) {
-  const rows = shouldUsePostgres()
-    ? await fetchPostgresRows(filters, analyticsSchema.exportLimit)
-    : await fetchSupabaseRows(filters, analyticsSchema.exportLimit);
-
-  return rows.map(normalizeRecord);
-}

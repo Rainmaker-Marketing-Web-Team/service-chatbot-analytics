@@ -22,7 +22,6 @@ A production-style internal analytics dashboard that reads chatbot data from Sup
 - Summary cards for total and filtered metrics
 - Trend and source breakdown charts
 - Detailed tabular results
-- CSV export for the current filtered result set
 - Loading, empty, and error states
 - Reusable component structure and a clear data layer
 - Dockerfile and `compose.yaml`
@@ -33,14 +32,12 @@ A production-style internal analytics dashboard that reads chatbot data from Sup
 app/
   api/
     analytics/route.ts       # JSON dashboard payload
-    export/route.ts          # CSV export endpoint
   components/                # UI building blocks
   lib/
     analytics/
       schema.ts              # Column aliases and dashboard defaults
       service.ts             # Query + aggregation layer
       filters.ts             # Request filter parsing
-      export.ts              # CSV serialization
     postgres/server.ts       # Server-only Postgres client
     supabase/server.ts       # Fallback Supabase API client
     utils/format.ts          # Shared formatting helpers
@@ -79,7 +76,6 @@ Dashboard tuning:
 
 - `ANALYTICS_DASHBOARD_PAGE_SIZE`
 - `ANALYTICS_AGGREGATION_SAMPLE_SIZE`
-- `ANALYTICS_EXPORT_LIMIT`
 
 ## Current Schema Assumption
 
@@ -156,7 +152,7 @@ docker run --env-file .env -p 3000:3000 rainmaker-internal-analytics
 This repository is structured to deploy cleanly through Coolify later:
 
 - app settings come from environment variables
-- the container listens on `PORT=3000`
+- the container listens on port `3000`
 - the Docker image uses a standalone Next.js production build
 
 For Coolify, you can point the service at this repo and either:
@@ -170,7 +166,6 @@ For Coolify, you can point the service at this repo and either:
 - `DATABASE_URL` takes priority when present.
 - Filter dropdown options are sampled from recent records.
 - Trend and summary calculations are based on the configured aggregation sample size.
-- CSV exports respect `ANALYTICS_EXPORT_LIMIT` to prevent runaway payloads.
 
 If you want deeper rollups later, this architecture is ready for:
 

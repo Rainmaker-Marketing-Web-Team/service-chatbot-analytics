@@ -55,7 +55,6 @@ export function DashboardShell() {
     void loadDashboard(filters);
   }, [filters, loadDashboard]);
 
-  const exportHref = useMemo(() => `/api/export?${toQueryString(filters)}`, [filters]);
   const selectedWindow = useMemo(() => {
     const from = filters.startDate ? format(new Date(filters.startDate), "MMM d, yyyy") : "Any time";
     const to = filters.endDate ? format(new Date(filters.endDate), "MMM d, yyyy") : "Today";
@@ -106,9 +105,6 @@ export function DashboardShell() {
               <button className="button-secondary" onClick={() => setFilters(initialFilters)} type="button">
                 Reset filters
               </button>
-              <a className="button-primary" href={exportHref}>
-                Export filtered CSV
-              </a>
             </div>
           </div>
           <FilterBar filters={filters} onChange={setFilters} options={data?.filterOptions} />

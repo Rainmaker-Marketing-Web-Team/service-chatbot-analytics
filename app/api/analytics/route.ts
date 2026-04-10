@@ -5,8 +5,7 @@ import { getAnalyticsDashboard } from "@/app/lib/analytics/service";
 export async function GET(request: NextRequest) {
   try {
     const filters = parseFilters(request.nextUrl.searchParams);
-    const includeRows = request.nextUrl.searchParams.get("includeRows") === "1";
-    const payload = await getAnalyticsDashboard(filters, { includeRows });
+    const payload = await getAnalyticsDashboard(filters);
 
     return NextResponse.json(payload, {
       headers: {

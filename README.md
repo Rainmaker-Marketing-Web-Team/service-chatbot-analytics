@@ -1,6 +1,6 @@
 # Service Chatbot Analytics
 
-A production-style internal analytics dashboard that reads chatbot data from Supabase Postgres and presents filtered activity as summary cards, trend charts, repeated user prompts, busiest usage times, and optional message-level details.
+A production-style internal analytics dashboard that reads chatbot data from Supabase Postgres and presents filtered activity as summary cards, trend charts, repeated user prompts, and busiest usage times.
 
 ## Stack
 
@@ -22,7 +22,6 @@ A production-style internal analytics dashboard that reads chatbot data from Sup
 - Summary cards for total and filtered metrics
 - Trend and source breakdown charts
 - Repeated user prompt and busiest-time highlights
-- Optional detailed message table
 - Loading, empty, and error states
 - Reusable component structure and a clear data layer
 - Dockerfile and `compose.yaml`
@@ -143,7 +142,6 @@ For Coolify, you can point the service at this repo and either:
 
 - The dashboard uses server-side API routes so the database URL is never sent to the browser.
 - The dashboard uses database-side aggregations for its summary cards and insight panels.
-- Recent messages are only loaded when you open the detailed table.
 
 If you want deeper rollups later, this architecture is ready for:
 

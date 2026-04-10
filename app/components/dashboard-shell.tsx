@@ -3,8 +3,7 @@
 import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import { endOfDay, format, startOfDay, subDays } from "date-fns";
 import { AnalyticsCharts } from "@/app/components/analytics-charts";
-import { DataTable } from "@/app/components/data-table";
-import { EmptyState, ErrorState, LoadingState } from "@/app/components/feedback-states";
+import { ErrorState, LoadingState } from "@/app/components/feedback-states";
 import { FilterBar } from "@/app/components/filter-bar";
 import { InsightCards } from "@/app/components/insight-cards";
 import { SummaryCards } from "@/app/components/summary-cards";
@@ -34,24 +33,17 @@ function areFiltersEqual(left: AnalyticsFilters, right: AnalyticsFilters) {
 export function DashboardShell() {
   const [draftFilters, setDraftFilters] = useState<AnalyticsFilters>(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState<AnalyticsFilters>(initialFilters);
-  const [showRows, setShowRows] = useState(false);
   const [data, setData] = useState<AnalyticsDashboardResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadDashboard = useCallback(
-    async (nextFilters: AnalyticsFilters, includeRows: boolean, signal?: AbortSignal) => {
+    async (nextFilters: AnalyticsFilters, signal?: AbortSignal) => {
       setIsLoading(true);
       setError(null);
 
       try {
-        const params = new URLSearchParams(toQueryString(nextFilters));
-
-        if (includeRows) {
-          params.set("includeRows", "1");
-        }
-
-        const response = await fetch(`/api/analytics?${params.toString()}`, {
+        const response = await fetch(`/api/analytics?${toQueryString(nextFilters)}`, {
           method: "GET",
           cache: "no-store",
           signal
@@ -84,10 +76,10 @@ export function DashboardShell() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadDashboard(appliedFilters, showRows, controller.signal);
+    void loadDashboard(appliedFilters, controller.signal);
 
     return () => controller.abort();
-  }, [appliedFilters, loadDashboard, showRows]);
+  }, [appliedFilters, loadDashboard]);
 
   const hasPendingFilterChanges = useMemo(
     () => !areFiltersEqual(draftFilters, appliedFilters),
@@ -153,9 +145,6 @@ export function DashboardShell() {
                 <button className="button-primary" disabled={!hasPendingFilterChanges} type="submit">
                   Apply filters
                 </button>
-                <button className="button-ghost" onClick={() => setShowRows((current) => !current)} type="button">
-                  {showRows ? "Hide recent messages" : "Show recent messages"}
-                </button>
               </div>
             </div>
 
@@ -164,7 +153,7 @@ export function DashboardShell() {
         </section>
 
         {isLoading && !data ? <LoadingState /> : null}
-        {error ? <ErrorState message={error} onRetry={() => loadDashboard(appliedFilters, showRows)} /> : null}
+        {error ? <ErrorState message={error} onRetry={() => loadDashboard(appliedFilters)} /> : null}
 
         {data ? (
           <>
@@ -184,25 +173,6 @@ export function DashboardShell() {
 
               <InsightCards busiestTimes={data.busiestTimes} topQuestions={data.topQuestions} />
             </section>
-
-            {showRows ? (
-              <section className="surface-panel">
-                <div className="table-header" style={{ gridTemplateColumns: "1fr auto", alignItems: "end", marginBottom: 18 }}>
-                  <div>
-                    <div className="kicker">Detailed Rows</div>
-                    <h2 style={{ margin: "4px 0 6px" }}>Recent messages</h2>
-                    <p className="helper-text" style={{ margin: 0 }}>
-                      Showing the most recent {formatCompactNumber(data.rows.length)} messages for the current filters.
-                    </p>
-                  </div>
-                  <div className="table-actions">
-                    <span className="badge">{data.meta.pageSize} row preview</span>
-                  </div>
-                </div>
-
-                {data.rows.length === 0 ? <EmptyState /> : <DataTable columns={data.meta.tableColumns} rows={data.rows} />}
-              </section>
-            ) : null}
           </>
         ) : null}
       </div>

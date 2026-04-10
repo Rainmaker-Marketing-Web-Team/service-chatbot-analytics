@@ -43,13 +43,8 @@ export type AnalyticsDashboardResponse = {
   sourceBreakdown: SourceBreakdownPoint[];
   topQuestions: AnalyticsInsightItem[];
   busiestTimes: AnalyticsInsightItem[];
-  rows: Record<string, unknown>[];
   filterOptions: FilterOptions;
   meta: {
     generatedAt: string;
-    tableName: string;
-    tableColumns: string[];
-    pageSize: number;
-    rowsIncluded: boolean;
   };
 };

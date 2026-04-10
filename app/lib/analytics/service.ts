@@ -16,9 +16,6 @@ import { queryPostgres } from "@/app/lib/postgres/server";
 import { formatHourRange } from "@/app/lib/utils/format";
 
 type AnalyticsRecord = Record<string, unknown>;
-type DashboardOptions = {
-  includeRows?: boolean;
-};
 
 type PostgresSummaryRow = {
   filtered_records: number;
@@ -52,18 +49,6 @@ type PostgresOptionRow = {
 
 function escapeLikeValue(value: string) {
   return value.replace(/[\\%_]/g, (match) => `\\${match}`);
-}
-
-function normalizeRecord(record: AnalyticsRecord) {
-  const normalized: AnalyticsRecord = {};
-
-  analyticsSchema.dashboardColumns.forEach((column) => {
-    normalized[column] = record[column] ?? null;
-  });
-
-  normalized.id = record[analyticsSchema.columns.id] ?? null;
-
-  return normalized;
 }
 
 function normalizeRecordDate(value: unknown) {
@@ -454,31 +439,6 @@ async function fetchPostgresFilterOptions(): Promise<FilterOptions> {
   };
 }
 
-async function fetchPostgresRows(filters: AnalyticsFilters, limit: number) {
-  const dataset = buildPostgresFrom(filters);
-  const limitPlaceholder = `$${dataset.values.length + 1}`;
-  const result = await queryPostgres<AnalyticsRecord>(
-    `
-      SELECT
-        cm.id,
-        cm.created_at::text AS created_at,
-        p.name AS project_name,
-        p.slug AS project_slug,
-        cs.channel,
-        cm.role,
-        cs.external_user_id,
-        cs.external_session_id,
-        cm.content
-      ${dataset.sql}
-      ORDER BY cm.created_at DESC
-      LIMIT ${limitPlaceholder}
-    `,
-    [...dataset.values, limit]
-  );
-
-  return result.rows;
-}
-
 function createSupabaseBaseQuery(selectClause: string) {
   const supabase = getSupabaseAdminClient();
   return supabase.from(analyticsSchema.tableName).select(selectClause, { count: "exact" });
@@ -584,37 +544,15 @@ async function fetchSupabaseFilteredAggregationSample(filters: AnalyticsFilters)
   return (data ?? []) as AnalyticsRecord[];
 }
 
-async function fetchSupabaseRows(filters: AnalyticsFilters, limit: number) {
-  const selectClause = analyticsSchema.dashboardColumns.join(",");
-
-  const query = applySupabaseFilters(createSupabaseBaseQuery(selectClause), filters)
-    .order(analyticsSchema.columns.createdAt, { ascending: false })
-    .limit(limit);
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? []) as AnalyticsRecord[];
-}
-
-export async function getAnalyticsDashboard(
-  filters: AnalyticsFilters,
-  options: DashboardOptions = {}
-): Promise<AnalyticsDashboardResponse> {
-  const includeRows = Boolean(options.includeRows);
-
+export async function getAnalyticsDashboard(filters: AnalyticsFilters): Promise<AnalyticsDashboardResponse> {
   if (shouldUsePostgres()) {
-    const [summary, timeline, sourceBreakdown, topQuestions, busiestTimes, filterOptions, rows] = await Promise.all([
+    const [summary, timeline, sourceBreakdown, topQuestions, busiestTimes, filterOptions] = await Promise.all([
       fetchPostgresSummary(filters),
       fetchPostgresTimeline(filters),
       fetchPostgresSourceBreakdown(filters),
       fetchPostgresTopQuestions(filters),
       fetchPostgresBusiestTimes(filters),
-      fetchPostgresFilterOptions(),
-      includeRows ? fetchPostgresRows(filters, analyticsSchema.pageSize) : Promise.resolve([])
+      fetchPostgresFilterOptions()
     ]);
 
     return {
@@ -623,24 +561,18 @@ export async function getAnalyticsDashboard(
       sourceBreakdown,
       topQuestions,
       busiestTimes,
-      rows: rows.map(normalizeRecord),
       filterOptions,
       meta: {
-        generatedAt: new Date().toISOString(),
-        tableName: analyticsSchema.tableName,
-        tableColumns: Array.from(analyticsSchema.dashboardColumns),
-        pageSize: analyticsSchema.pageSize,
-        rowsIncluded: includeRows
+        generatedAt: new Date().toISOString()
       }
     };
   }
 
-  const [totalRecords, filteredRecords, aggregationSample, filterOptionSample, rows] = await Promise.all([
+  const [totalRecords, filteredRecords, aggregationSample, filterOptionSample] = await Promise.all([
     fetchSupabaseTotalRecordCount(),
     fetchSupabaseFilteredRecordCount(filters),
     fetchSupabaseFilteredAggregationSample(filters),
-    fetchSupabaseFilterOptionSample(),
-    includeRows ? fetchSupabaseRows(filters, analyticsSchema.pageSize) : Promise.resolve([])
+    fetchSupabaseFilterOptionSample()
   ]);
 
   return {
@@ -649,14 +581,9 @@ export async function getAnalyticsDashboard(
     sourceBreakdown: buildSourceBreakdown(aggregationSample),
     topQuestions: buildTopQuestions(aggregationSample),
     busiestTimes: buildBusiestTimes(aggregationSample),
-    rows: rows.map(normalizeRecord),
     filterOptions: buildFilterOptions(filterOptionSample),
     meta: {
-      generatedAt: new Date().toISOString(),
-      tableName: analyticsSchema.tableName,
-      tableColumns: Array.from(analyticsSchema.dashboardColumns),
-      pageSize: analyticsSchema.pageSize,
-      rowsIncluded: includeRows
+      generatedAt: new Date().toISOString()
     }
   };
 }

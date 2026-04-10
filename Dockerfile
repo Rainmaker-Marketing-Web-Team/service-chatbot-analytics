@@ -1,19 +1,17 @@
-FROM node:22-alpine AS deps
-WORKDIR /app
-COPY package.json ./
-RUN npm install
+FROM grafana/grafana:12.4
 
-FROM node:22-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npm run build
+USER root
 
-FROM node:22-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-ENV PORT=3000
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY grafana/entrypoint.sh /usr/local/bin/grafana-entrypoint.sh
+COPY grafana/provisioning /etc/grafana/provisioning
+COPY grafana/dashboards /var/lib/grafana/dashboards
+
+RUN chmod +x /usr/local/bin/grafana-entrypoint.sh \
+  && mkdir -p /etc/grafana/provisioning/datasources /var/lib/grafana/dashboards \
+  && chown -R grafana:root /etc/grafana /var/lib/grafana /usr/local/bin/grafana-entrypoint.sh
+
+USER grafana
+
 EXPOSE 3000
-CMD ["node", "server.js"]
+
+ENTRYPOINT ["/usr/local/bin/grafana-entrypoint.sh"]

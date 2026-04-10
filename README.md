@@ -1,71 +1,61 @@
 # Service Chatbot Analytics
 
-A production-style internal analytics dashboard that reads chatbot data from Supabase Postgres and presents filtered activity as summary cards, trend charts, repeated user prompts, and busiest usage times.
+This repository now provisions a Grafana dashboard for your Supabase Postgres chatbot data.
+
+It boots with:
+
+- a preconfigured PostgreSQL datasource derived from `DATABASE_URL`
+- a starter dashboard for message volume, sessions, active projects, active channels, role mix, repeated user prompts, and busiest times
+- dashboard variables for project, channel, role, and time range
 
 ## Stack
 
-- Next.js App Router
-- React + TypeScript
-- Supabase Postgres access via `DATABASE_URL`
-- Recharts for dashboard visualizations
-- Docker-ready deployment layout for local containers and future Coolify deployment
-
-## What This App Includes
-
-- Secure server-side database access using environment variables
-- Dashboard filters for:
-  - date range
-  - project
-  - channel
-  - role
-  - free-text search
-- Summary cards for total and filtered metrics
-- Trend and source breakdown charts
-- Repeated user prompt and busiest-time highlights
-- Loading, empty, and error states
-- Reusable component structure and a clear data layer
-- Dockerfile and `compose.yaml`
-
-## Project Structure
-
-```text
-app/
-  api/
-    analytics/route.ts       # JSON dashboard payload
-  components/                # UI building blocks
-  lib/
-    analytics/
-      schema.ts              # Column aliases and dashboard defaults
-      service.ts             # Query + aggregation layer
-      filters.ts             # Request filter parsing
-    postgres/server.ts       # Server-only Postgres client
-    supabase/server.ts       # Fallback Supabase API client
-    utils/format.ts          # Shared formatting helpers
-```
+- Grafana
+- PostgreSQL datasource provisioning
+- Docker / Docker Compose
 
 ## Environment Variables
-
-Copy `.env.example` to `.env` and update the values:
-
-```bash
-cp .env.example .env
-```
 
 Required:
 
 - `DATABASE_URL`
 
-## Current Schema Assumption
+Optional:
 
-The app is now tuned for a relational chat schema where each analytics row is a `chat_messages` row joined to `chat_sessions` and `projects`.
+- `GRAFANA_ADMIN_USER`
+- `GRAFANA_ADMIN_PASSWORD`
 
-The schema mapping lives here:
+If you do not set Grafana admin credentials, the compose setup defaults to `admin` / `admin`.
 
-- [app/lib/analytics/schema.ts](/Users/devon/Documents/GitHub/service-chatbot-analytics/app/lib/analytics/schema.ts)
+## Local Run
 
-If your schema changes later, adjust that file.
+1. Copy the example env file:
 
-The current defaults assume a dataset roughly shaped like:
+```bash
+cp .env.example .env
+```
+
+2. Start Grafana:
+
+```bash
+docker compose up --build
+```
+
+3. Open:
+
+```text
+http://localhost:3000
+```
+
+## What Gets Provisioned
+
+- Datasource config is generated at container startup from `DATABASE_URL` in [entrypoint.sh](/Users/devon/Documents/GitHub/service-chatbot-analytics/grafana/entrypoint.sh)
+- Dashboard provisioning is defined in [service-chatbot-analytics.yaml](/Users/devon/Documents/GitHub/service-chatbot-analytics/grafana/provisioning/dashboards/service-chatbot-analytics.yaml)
+- The starter dashboard JSON lives in [service-chatbot-analytics.json](/Users/devon/Documents/GitHub/service-chatbot-analytics/grafana/dashboards/service-chatbot-analytics.json)
+
+## Dashboard Scope
+
+The starter board assumes this relational shape:
 
 ```sql
 select
@@ -83,70 +73,19 @@ join public.chat_sessions cs on cs.id = cm.session_id
 join public.projects p on p.id = cs.project_id;
 ```
 
-## Local Development
+## Coolify
 
-1. Install dependencies:
+This repo is ready to deploy with the root [Dockerfile](/Users/devon/Documents/GitHub/service-chatbot-analytics/Dockerfile).
 
-```bash
-npm install
-```
+The only required runtime variable is:
 
-2. Start the dev server:
+- `DATABASE_URL`
 
-```bash
-npm run dev
-```
+You can also set:
 
-3. Open:
+- `GRAFANA_ADMIN_USER`
+- `GRAFANA_ADMIN_PASSWORD`
 
-```text
-http://localhost:3000
-```
+## Security Note
 
-## Production Build
-
-```bash
-npm run build
-npm run start
-```
-
-## Docker
-
-Build and run with Docker Compose:
-
-```bash
-docker compose up --build
-```
-
-Or plain Docker:
-
-```bash
-docker build -t rainmaker-internal-analytics .
-docker run --env-file .env -p 3000:3000 rainmaker-internal-analytics
-```
-
-## Coolify Notes
-
-This repository is structured to deploy cleanly through Coolify later:
-
-- app settings come from environment variables
-- the container listens on port `3000`
-- the Docker image uses a standalone Next.js production build
-
-For Coolify, you can point the service at this repo and either:
-
-1. use the provided `Dockerfile`, or
-2. use a Node deployment with `npm install && npm run build` and start command `npm run start`
-
-## Notes For Your Real Data
-
-- The dashboard uses server-side API routes so the database URL is never sent to the browser.
-- The dashboard uses database-side aggregations for its summary cards and insight panels.
-
-If you want deeper rollups later, this architecture is ready for:
-
-- authentication and role-based access
-- pagination
-- saved views
-- richer SQL views or RPC-based aggregations in Supabase
-- client-specific dashboards
+For production use, rotate exposed database credentials and set a non-default Grafana admin password.

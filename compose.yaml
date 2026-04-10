@@ -1,11 +1,14 @@
 services:
-  analytics:
+  grafana:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: rainmaker-internal-analytics
-    env_file:
-      - .env
+    container_name: service-chatbot-analytics-grafana
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
     ports:
-      - "${PORT:-3000}:3000"
+      - "3000:3000"
     restart: unless-stopped

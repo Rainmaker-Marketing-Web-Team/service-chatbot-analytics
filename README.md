@@ -1,17 +1,21 @@
 # Service Chatbot Analytics
 
-This repository now provisions a Grafana dashboard for your Supabase Postgres chatbot data.
+A Next.js dashboard for chatbot analytics backed by Supabase Postgres.
 
-It boots with:
+The current UI is optimized around:
 
-- a preconfigured PostgreSQL datasource derived from `DATABASE_URL`
-- a starter dashboard for message volume, sessions, active projects, active channels, role mix, repeated user prompts, and busiest times
-- dashboard variables for project, channel, role, and time range
+- summary cards
+- message volume over time
+- role mix
+- most frequent repeated user questions
+- busiest chatbot usage times
 
 ## Stack
 
-- Grafana
-- PostgreSQL datasource provisioning
+- Next.js App Router
+- React + TypeScript
+- PostgreSQL via `DATABASE_URL`
+- Recharts
 - Docker / Docker Compose
 
 ## Environment Variables
@@ -20,42 +24,56 @@ Required:
 
 - `DATABASE_URL`
 
-Optional:
-
-- `GRAFANA_ADMIN_USER`
-- `GRAFANA_ADMIN_PASSWORD`
-
-If you do not set Grafana admin credentials, the compose setup defaults to `admin` / `admin`.
-
-## Local Run
-
-1. Copy the example env file:
+Example:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Start Grafana:
+## Local Development
+
+Install dependencies:
 
 ```bash
-docker compose up --build
+npm install
 ```
 
-3. Open:
+Start the dev server:
+
+```bash
+npm run dev
+```
+
+Open:
 
 ```text
 http://localhost:3000
 ```
 
-## What Gets Provisioned
+## Docker
 
-- Datasource config is generated at container startup from `DATABASE_URL` in [entrypoint.sh](/Users/devon/Documents/GitHub/service-chatbot-analytics/grafana/entrypoint.sh)
-- Dashboard provisioning is defined in [service-chatbot-analytics.yaml](/Users/devon/Documents/GitHub/service-chatbot-analytics/grafana/provisioning/dashboards/service-chatbot-analytics.yaml)
-- The starter dashboard JSON lives in [service-chatbot-analytics.json](/Users/devon/Documents/GitHub/service-chatbot-analytics/grafana/dashboards/service-chatbot-analytics.json)
+Run with Compose:
 
-## Dashboard Scope
+```bash
+docker compose --env-file .env up --build
+```
 
-The starter board assumes this relational shape:
+Or build directly:
+
+```bash
+docker build -t service-chatbot-analytics .
+docker run --env-file .env -p 3000:3000 service-chatbot-analytics
+```
+
+## Coolify
+
+Use the root [Dockerfile](/Users/devon/Documents/GitHub/service-chatbot-analytics/Dockerfile) and set:
+
+- `DATABASE_URL`
+
+## Data Shape
+
+The dashboard assumes analytics come from:
 
 ```sql
 select
@@ -72,20 +90,3 @@ from public.chat_messages cm
 join public.chat_sessions cs on cs.id = cm.session_id
 join public.projects p on p.id = cs.project_id;
 ```
-
-## Coolify
-
-This repo is ready to deploy with the root [Dockerfile](/Users/devon/Documents/GitHub/service-chatbot-analytics/Dockerfile).
-
-The only required runtime variable is:
-
-- `DATABASE_URL`
-
-You can also set:
-
-- `GRAFANA_ADMIN_USER`
-- `GRAFANA_ADMIN_PASSWORD`
-
-## Security Note
-
-For production use, rotate exposed database credentials and set a non-default Grafana admin password.

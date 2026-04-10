@@ -1,0 +1,29 @@
+{
+  "name": "rainmaker-internal-analytics",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.8",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "next": "^15.2.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^2.15.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.17",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.5",
+    "eslint": "^9.22.0",
+    "eslint-config-next": "^15.2.3",
+    "typescript": "^5.8.2"
+  }
+}

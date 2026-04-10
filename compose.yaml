@@ -1,0 +1,11 @@
+services:
+  analytics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rainmaker-internal-analytics
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-3000}:3000"
+    restart: unless-stopped

@@ -5,14 +5,50 @@ import { analyticsSchema } from "@/app/lib/analytics/schema";
 import type {
   AnalyticsDashboardResponse,
   AnalyticsFilters,
+  AnalyticsInsightItem,
+  AnalyticsSummary,
   FilterOptions,
   SourceBreakdownPoint,
   TimelinePoint
 } from "@/app/lib/analytics/types";
 import { getSupabaseAdminClient } from "@/app/lib/supabase/server";
 import { queryPostgres } from "@/app/lib/postgres/server";
+import { formatHourRange } from "@/app/lib/utils/format";
 
 type AnalyticsRecord = Record<string, unknown>;
+type DashboardOptions = {
+  includeRows?: boolean;
+};
+
+type PostgresSummaryRow = {
+  filtered_records: number;
+  unique_clients: number;
+  unique_campaigns: number;
+  unique_sources: number;
+};
+
+type PostgresCountRow = {
+  count: number;
+};
+
+type PostgresTimelineRow = {
+  bucket: string;
+  count: number;
+};
+
+type PostgresInsightRow = {
+  label: string;
+  count: number;
+};
+
+type PostgresHourRow = {
+  hour: number;
+  count: number;
+};
+
+type PostgresOptionRow = {
+  value: string | null;
+};
 
 function escapeLikeValue(value: string) {
   return value.replace(/[\\%_]/g, (match) => `\\${match}`);
@@ -30,13 +66,23 @@ function normalizeRecord(record: AnalyticsRecord) {
   return normalized;
 }
 
+function normalizeRecordDate(value: unknown) {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  return null;
+}
+
 function buildTimeline(records: AnalyticsRecord[]): TimelinePoint[] {
   const bucket = new Map<string, number>();
 
   records.forEach((record) => {
-    const rawDate = record[analyticsSchema.columns.createdAt];
-    const normalizedDate =
-      typeof rawDate === "string" ? rawDate : rawDate instanceof Date ? rawDate.toISOString() : null;
+    const normalizedDate = normalizeRecordDate(record[analyticsSchema.columns.createdAt]);
 
     if (!normalizedDate) {
       return;
@@ -100,7 +146,7 @@ function buildFilterOptions(records: AnalyticsRecord[]): FilterOptions {
   };
 }
 
-function buildSummary(totalRecords: number, filteredRecords: number, records: AnalyticsRecord[]) {
+function buildSummary(totalRecords: number, filteredRecords: number, records: AnalyticsRecord[]): AnalyticsSummary {
   const clients = new Set<string>();
   const campaigns = new Set<string>();
   const sources = new Set<string>();
@@ -133,12 +179,74 @@ function buildSummary(totalRecords: number, filteredRecords: number, records: An
   };
 }
 
+function buildTopQuestions(records: AnalyticsRecord[]): AnalyticsInsightItem[] {
+  const bucket = new Map<string, { label: string; count: number }>();
+
+  records.forEach((record) => {
+    const role = record[analyticsSchema.columns.source];
+    const content = record.content;
+
+    if (typeof role !== "string" || role.toLowerCase() !== "user") {
+      return;
+    }
+
+    if (typeof content !== "string") {
+      return;
+    }
+
+    const cleaned = content.replace(/\s+/g, " ").trim();
+
+    if (!cleaned) {
+      return;
+    }
+
+    const key = cleaned.toLowerCase();
+    const current = bucket.get(key);
+
+    if (current) {
+      current.count += 1;
+      return;
+    }
+
+    bucket.set(key, { label: cleaned, count: 1 });
+  });
+
+  return [...bucket.values()]
+    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
+    .slice(0, 5)
+    .map(({ label, count }) => ({ label, count }));
+}
+
+function buildBusiestTimes(records: AnalyticsRecord[]): AnalyticsInsightItem[] {
+  const bucket = new Map<number, number>();
+
+  records.forEach((record) => {
+    const normalizedDate = normalizeRecordDate(record[analyticsSchema.columns.createdAt]);
+
+    if (!normalizedDate) {
+      return;
+    }
+
+    const date = parseISO(normalizedDate);
+    const hour = date.getUTCHours();
+    bucket.set(hour, (bucket.get(hour) ?? 0) + 1);
+  });
+
+  return [...bucket.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0] - right[0])
+    .slice(0, 5)
+    .map(([hour, count]) => ({
+      label: formatHourRange(hour),
+      count
+    }));
+}
+
 function shouldUsePostgres() {
   return Boolean(process.env.DATABASE_URL);
 }
 
-function buildPostgresWhere(filters: AnalyticsFilters) {
-  const conditions: string[] = [];
+function buildPostgresWhere(filters: AnalyticsFilters, extraConditions: string[] = []) {
+  const conditions: string[] = [...extraConditions];
   const values: unknown[] = [];
   const addValue = (value: unknown) => {
     values.push(value);
@@ -185,69 +293,190 @@ function buildPostgresWhere(filters: AnalyticsFilters) {
   };
 }
 
-function buildPostgresSelect() {
-  return `
-    SELECT
-      cm.id,
-      cm.created_at::text AS created_at,
-      p.name AS project_name,
-      p.slug AS project_slug,
-      cs.channel,
-      cm.role,
-      cs.external_user_id,
-      cs.external_session_id,
-      cm.content
-    FROM public.chat_messages cm
-    INNER JOIN public.chat_sessions cs ON cs.id = cm.session_id
-    INNER JOIN public.projects p ON p.id = cs.project_id
-  `;
-}
+function buildPostgresFrom(filters: AnalyticsFilters, extraConditions: string[] = []) {
+  const where = buildPostgresWhere(filters, extraConditions);
 
-async function fetchPostgresRows(filters: AnalyticsFilters, limit: number) {
-  const where = buildPostgresWhere(filters);
-  const limitPlaceholder = `$${where.values.length + 1}`;
-  const sql = `
-    ${buildPostgresSelect()}
-    ${where.text}
-    ORDER BY cm.created_at DESC
-    LIMIT ${limitPlaceholder}
-  `;
-
-  const result = await queryPostgres<AnalyticsRecord>(sql, [...where.values, limit]);
-  return result.rows;
+  return {
+    sql: `
+      FROM public.chat_messages cm
+      INNER JOIN public.chat_sessions cs ON cs.id = cm.session_id
+      INNER JOIN public.projects p ON p.id = cs.project_id
+      ${where.text}
+    `,
+    values: where.values
+  };
 }
 
 async function fetchPostgresTotalRecordCount() {
-  const result = await queryPostgres<{ count: string }>("SELECT COUNT(*)::text AS count FROM public.chat_messages");
-  return Number(result.rows[0]?.count ?? 0);
+  const result = await queryPostgres<PostgresCountRow>("SELECT COUNT(*)::int AS count FROM public.chat_messages");
+  return result.rows[0]?.count ?? 0;
 }
 
-async function fetchPostgresFilteredRecordCount(filters: AnalyticsFilters) {
-  const where = buildPostgresWhere(filters);
-  const sql = `
-    SELECT COUNT(*)::text AS count
-    FROM public.chat_messages cm
-    INNER JOIN public.chat_sessions cs ON cs.id = cm.session_id
-    INNER JOIN public.projects p ON p.id = cs.project_id
-    ${where.text}
-  `;
+async function fetchPostgresSummary(filters: AnalyticsFilters): Promise<AnalyticsSummary> {
+  const dataset = buildPostgresFrom(filters);
+  const [totalRecordsResult, filteredSummaryResult] = await Promise.all([
+    fetchPostgresTotalRecordCount(),
+    queryPostgres<PostgresSummaryRow>(
+      `
+        SELECT
+          COUNT(*)::int AS filtered_records,
+          COUNT(DISTINCT p.id)::int AS unique_clients,
+          COUNT(DISTINCT NULLIF(COALESCE(cs.channel, ''), ''))::int AS unique_campaigns,
+          COUNT(DISTINCT NULLIF(COALESCE(cm.role, ''), ''))::int AS unique_sources
+        ${dataset.sql}
+      `,
+      dataset.values
+    )
+  ]);
 
-  const result = await queryPostgres<{ count: string }>(sql, where.values);
-  return Number(result.rows[0]?.count ?? 0);
+  const row = filteredSummaryResult.rows[0];
+  const filteredRecords = row?.filtered_records ?? 0;
+
+  return {
+    totalRecords: totalRecordsResult,
+    filteredRecords,
+    filterCoverage: totalRecordsResult > 0 ? filteredRecords / totalRecordsResult : 0,
+    uniqueClients: row?.unique_clients ?? 0,
+    uniqueCampaigns: row?.unique_campaigns ?? 0,
+    uniqueSources: row?.unique_sources ?? 0
+  };
 }
 
-async function fetchPostgresFilterOptionSample() {
-  return fetchPostgresRows(
-    {
-      startDate: "",
-      endDate: "",
-      client: "",
-      campaign: "",
-      source: "",
-      search: ""
-    },
-    analyticsSchema.aggregationSampleSize
+async function fetchPostgresTimeline(filters: AnalyticsFilters): Promise<TimelinePoint[]> {
+  const dataset = buildPostgresFrom(filters);
+  const result = await queryPostgres<PostgresTimelineRow>(
+    `
+      SELECT TO_CHAR(DATE_TRUNC('day', cm.created_at), 'YYYY-MM-DD') AS bucket, COUNT(*)::int AS count
+      ${dataset.sql}
+      GROUP BY 1
+      ORDER BY 1
+    `,
+    dataset.values
   );
+
+  return result.rows.map((row) => ({
+    label: format(parseISO(`${row.bucket}T00:00:00.000Z`), "MMM d"),
+    count: row.count
+  }));
+}
+
+async function fetchPostgresSourceBreakdown(filters: AnalyticsFilters): Promise<SourceBreakdownPoint[]> {
+  const dataset = buildPostgresFrom(filters);
+  const result = await queryPostgres<PostgresInsightRow>(
+    `
+      SELECT COALESCE(NULLIF(cm.role, ''), 'Unknown') AS label, COUNT(*)::int AS count
+      ${dataset.sql}
+      GROUP BY 1
+      ORDER BY count DESC, label ASC
+      LIMIT 8
+    `,
+    dataset.values
+  );
+
+  return result.rows;
+}
+
+async function fetchPostgresTopQuestions(filters: AnalyticsFilters): Promise<AnalyticsInsightItem[]> {
+  const dataset = buildPostgresFrom(filters, ["LOWER(cm.role) = 'user'", "CHAR_LENGTH(TRIM(cm.content)) > 0"]);
+  const result = await queryPostgres<PostgresInsightRow>(
+    `
+      SELECT MIN(cleaned_content) AS label, COUNT(*)::int AS count
+      FROM (
+        SELECT
+          TRIM(REGEXP_REPLACE(cm.content, '\\s+', ' ', 'g')) AS cleaned_content,
+          LOWER(TRIM(REGEXP_REPLACE(cm.content, '\\s+', ' ', 'g'))) AS normalized_content
+        ${dataset.sql}
+      ) prompts
+      GROUP BY normalized_content
+      ORDER BY count DESC, label ASC
+      LIMIT 5
+    `,
+    dataset.values
+  );
+
+  return result.rows;
+}
+
+async function fetchPostgresBusiestTimes(filters: AnalyticsFilters): Promise<AnalyticsInsightItem[]> {
+  const dataset = buildPostgresFrom(filters);
+  const result = await queryPostgres<PostgresHourRow>(
+    `
+      SELECT EXTRACT(HOUR FROM cm.created_at AT TIME ZONE 'UTC')::int AS hour, COUNT(*)::int AS count
+      ${dataset.sql}
+      GROUP BY 1
+      ORDER BY count DESC, hour ASC
+      LIMIT 5
+    `,
+    dataset.values
+  );
+
+  return result.rows.map((row) => ({
+    label: formatHourRange(row.hour),
+    count: row.count
+  }));
+}
+
+async function fetchPostgresFilterOptions(): Promise<FilterOptions> {
+  const [clients, campaigns, sources] = await Promise.all([
+    queryPostgres<PostgresOptionRow>(
+      `
+        SELECT DISTINCT p.name AS value
+        FROM public.projects p
+        INNER JOIN public.chat_sessions cs ON cs.project_id = p.id
+        INNER JOIN public.chat_messages cm ON cm.session_id = cs.id
+        WHERE CHAR_LENGTH(TRIM(p.name)) > 0
+        ORDER BY 1
+      `
+    ),
+    queryPostgres<PostgresOptionRow>(
+      `
+        SELECT DISTINCT cs.channel AS value
+        FROM public.chat_sessions cs
+        INNER JOIN public.chat_messages cm ON cm.session_id = cs.id
+        WHERE cs.channel IS NOT NULL AND CHAR_LENGTH(TRIM(cs.channel)) > 0
+        ORDER BY 1
+      `
+    ),
+    queryPostgres<PostgresOptionRow>(
+      `
+        SELECT DISTINCT cm.role AS value
+        FROM public.chat_messages cm
+        WHERE cm.role IS NOT NULL AND CHAR_LENGTH(TRIM(cm.role)) > 0
+        ORDER BY 1
+      `
+    )
+  ]);
+
+  return {
+    clients: clients.rows.flatMap((row) => (row.value ? [row.value] : [])),
+    campaigns: campaigns.rows.flatMap((row) => (row.value ? [row.value] : [])),
+    sources: sources.rows.flatMap((row) => (row.value ? [row.value] : []))
+  };
+}
+
+async function fetchPostgresRows(filters: AnalyticsFilters, limit: number) {
+  const dataset = buildPostgresFrom(filters);
+  const limitPlaceholder = `$${dataset.values.length + 1}`;
+  const result = await queryPostgres<AnalyticsRecord>(
+    `
+      SELECT
+        cm.id,
+        cm.created_at::text AS created_at,
+        p.name AS project_name,
+        p.slug AS project_slug,
+        cs.channel,
+        cm.role,
+        cs.external_user_id,
+        cs.external_session_id,
+        cm.content
+      ${dataset.sql}
+      ORDER BY cm.created_at DESC
+      LIMIT ${limitPlaceholder}
+    `,
+    [...dataset.values, limit]
+  );
+
+  return result.rows;
 }
 
 function createSupabaseBaseQuery(selectClause: string) {
@@ -282,7 +511,7 @@ function applySupabaseFilters<TQuery extends { gte: Function; lte: Function; eq:
     query = query.eq(columns.source, source);
   }
 
-  if (search) {
+  if (search.trim()) {
     const safeSearch = escapeLikeValue(search.trim());
     const textTargets = [columns.client, columns.campaign, columns.source, ...columns.search];
 
@@ -332,15 +561,15 @@ async function fetchSupabaseFilteredRecordCount(filters: AnalyticsFilters) {
 }
 
 async function fetchSupabaseFilteredAggregationSample(filters: AnalyticsFilters) {
-  const selectClause = [
+  const selectColumns: string[] = [
     analyticsSchema.columns.id,
     analyticsSchema.columns.createdAt,
     analyticsSchema.columns.client,
     analyticsSchema.columns.campaign,
-    analyticsSchema.columns.source
-  ]
-    .concat(analyticsSchema.columns.search)
-    .join(",");
+    analyticsSchema.columns.source,
+    ...analyticsSchema.columns.search
+  ];
+  const selectClause = selectColumns.join(",");
 
   const query = applySupabaseFilters(createSupabaseBaseQuery(selectClause), filters)
     .order(analyticsSchema.columns.createdAt, { ascending: false })
@@ -353,10 +582,6 @@ async function fetchSupabaseFilteredAggregationSample(filters: AnalyticsFilters)
   }
 
   return (data ?? []) as AnalyticsRecord[];
-}
-
-async function fetchSupabaseFilteredRows(filters: AnalyticsFilters) {
-  return fetchSupabaseRows(filters, analyticsSchema.pageSize);
 }
 
 async function fetchSupabaseRows(filters: AnalyticsFilters, limit: number) {
@@ -375,35 +600,63 @@ async function fetchSupabaseRows(filters: AnalyticsFilters, limit: number) {
   return (data ?? []) as AnalyticsRecord[];
 }
 
-export async function getAnalyticsDashboard(filters: AnalyticsFilters): Promise<AnalyticsDashboardResponse> {
-  const [totalRecords, filteredRecords, aggregationSample, rows, filterOptionSample] = shouldUsePostgres()
-    ? await Promise.all([
-        fetchPostgresTotalRecordCount(),
-        fetchPostgresFilteredRecordCount(filters),
-        fetchPostgresRows(filters, analyticsSchema.aggregationSampleSize),
-        fetchPostgresRows(filters, analyticsSchema.pageSize),
-        fetchPostgresFilterOptionSample()
-      ])
-    : await Promise.all([
-        fetchSupabaseTotalRecordCount(),
-        fetchSupabaseFilteredRecordCount(filters),
-        fetchSupabaseFilteredAggregationSample(filters),
-        fetchSupabaseFilteredRows(filters),
-        fetchSupabaseFilterOptionSample()
-      ]);
+export async function getAnalyticsDashboard(
+  filters: AnalyticsFilters,
+  options: DashboardOptions = {}
+): Promise<AnalyticsDashboardResponse> {
+  const includeRows = Boolean(options.includeRows);
+
+  if (shouldUsePostgres()) {
+    const [summary, timeline, sourceBreakdown, topQuestions, busiestTimes, filterOptions, rows] = await Promise.all([
+      fetchPostgresSummary(filters),
+      fetchPostgresTimeline(filters),
+      fetchPostgresSourceBreakdown(filters),
+      fetchPostgresTopQuestions(filters),
+      fetchPostgresBusiestTimes(filters),
+      fetchPostgresFilterOptions(),
+      includeRows ? fetchPostgresRows(filters, analyticsSchema.pageSize) : Promise.resolve([])
+    ]);
+
+    return {
+      summary,
+      timeline,
+      sourceBreakdown,
+      topQuestions,
+      busiestTimes,
+      rows: rows.map(normalizeRecord),
+      filterOptions,
+      meta: {
+        generatedAt: new Date().toISOString(),
+        tableName: analyticsSchema.tableName,
+        tableColumns: Array.from(analyticsSchema.dashboardColumns),
+        pageSize: analyticsSchema.pageSize,
+        rowsIncluded: includeRows
+      }
+    };
+  }
+
+  const [totalRecords, filteredRecords, aggregationSample, filterOptionSample, rows] = await Promise.all([
+    fetchSupabaseTotalRecordCount(),
+    fetchSupabaseFilteredRecordCount(filters),
+    fetchSupabaseFilteredAggregationSample(filters),
+    fetchSupabaseFilterOptionSample(),
+    includeRows ? fetchSupabaseRows(filters, analyticsSchema.pageSize) : Promise.resolve([])
+  ]);
 
   return {
     summary: buildSummary(totalRecords, filteredRecords, aggregationSample),
     timeline: buildTimeline(aggregationSample),
     sourceBreakdown: buildSourceBreakdown(aggregationSample),
+    topQuestions: buildTopQuestions(aggregationSample),
+    busiestTimes: buildBusiestTimes(aggregationSample),
     rows: rows.map(normalizeRecord),
     filterOptions: buildFilterOptions(filterOptionSample),
     meta: {
       generatedAt: new Date().toISOString(),
       tableName: analyticsSchema.tableName,
-      tableColumns: analyticsSchema.dashboardColumns,
+      tableColumns: Array.from(analyticsSchema.dashboardColumns),
       pageSize: analyticsSchema.pageSize,
-      aggregationSampleSize: analyticsSchema.aggregationSampleSize
+      rowsIncluded: includeRows
     }
   };
 }

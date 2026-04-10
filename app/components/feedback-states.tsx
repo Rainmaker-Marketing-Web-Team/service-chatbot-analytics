@@ -11,7 +11,7 @@ export function LoadingState() {
           <div className="spinner" />
           <h3 style={{ marginBottom: 6 }}>Loading analytics</h3>
           <p className="helper-text" style={{ margin: 0 }}>
-            Pulling the latest data and summary metrics from Supabase.
+            Pulling the latest data and summary metrics.
           </p>
         </div>
       </div>

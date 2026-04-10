@@ -32,10 +32,17 @@ export type SourceBreakdownPoint = {
   count: number;
 };
 
+export type AnalyticsInsightItem = {
+  label: string;
+  count: number;
+};
+
 export type AnalyticsDashboardResponse = {
   summary: AnalyticsSummary;
   timeline: TimelinePoint[];
   sourceBreakdown: SourceBreakdownPoint[];
+  topQuestions: AnalyticsInsightItem[];
+  busiestTimes: AnalyticsInsightItem[];
   rows: Record<string, unknown>[];
   filterOptions: FilterOptions;
   meta: {
@@ -43,6 +50,6 @@ export type AnalyticsDashboardResponse = {
     tableName: string;
     tableColumns: string[];
     pageSize: number;
-    aggregationSampleSize: number;
+    rowsIncluded: boolean;
   };
 };

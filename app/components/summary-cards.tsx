@@ -18,14 +18,14 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
       note: `${formatPercent(summary.filterCoverage)} of total messages`
     },
     {
-      label: "Unique channels",
-      value: formatCompactNumber(summary.uniqueCampaigns),
-      note: "Distinct chat channels in the filtered slice"
+      label: "Active projects",
+      value: formatCompactNumber(summary.uniqueClients),
+      note: "Projects represented in the filtered slice"
     },
     {
-      label: "Unique roles",
-      value: formatCompactNumber(summary.uniqueSources),
-      note: "Message roles present after filtering"
+      label: "Active channels",
+      value: formatCompactNumber(summary.uniqueCampaigns),
+      note: "Distinct chat channels in the filtered slice"
     }
   ];
 

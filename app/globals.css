@@ -118,7 +118,10 @@ select:focus {
 .chart-grid,
 .table-header,
 .filter-grid,
-.stats-inline {
+.stats-inline,
+.header-row,
+.insight-stack,
+.insight-list {
   display: grid;
   gap: 16px;
 }
@@ -126,6 +129,18 @@ select:focus {
 .hero-grid {
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
   align-items: end;
+}
+
+.header-row {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, auto);
+  align-items: center;
+}
+
+.page-title {
+  margin: 6px 0 0;
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
 }
 
 .hero-title {
@@ -157,6 +172,10 @@ select:focus {
 
 .stats-inline {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.compact-stats {
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
 }
 
 .inline-stat {
@@ -245,8 +264,57 @@ select:focus {
   grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
 }
 
+.dashboard-main-grid {
+  align-items: start;
+}
+
 .chart-frame {
   min-height: 320px;
+}
+
+.insight-stack {
+  align-content: start;
+}
+
+.insight-card {
+  min-height: 0;
+}
+
+.insight-title {
+  margin: 4px 0 0;
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.insight-copy {
+  margin: 8px 0 0;
+}
+
+.insight-list {
+  margin-top: 14px;
+}
+
+.insight-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 0;
+  border-top: 1px solid rgba(22, 29, 24, 0.08);
+}
+
+.insight-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.insight-label {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.insight-empty {
+  margin-top: 14px;
 }
 
 .table-shell {
@@ -335,7 +403,9 @@ select:focus {
   .hero-grid,
   .chart-grid,
   .summary-grid,
-  .filter-grid {
+  .filter-grid,
+  .header-row,
+  .compact-stats {
     grid-template-columns: 1fr;
   }
 

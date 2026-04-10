@@ -30,6 +30,12 @@ export function formatDateTime(value: string) {
   return isValid(date) ? format(date, "MMM d, yyyy HH:mm") : value;
 }
 
+export function formatHourRange(hour: number) {
+  const normalizedHour = Math.max(0, Math.min(23, hour));
+  const value = String(normalizedHour).padStart(2, "0");
+  return `${value}:00-${value}:59 UTC`;
+}
+
 export function formatCellValue(value: unknown) {
   if (value === null || value === undefined || value === "") {
     return "-";

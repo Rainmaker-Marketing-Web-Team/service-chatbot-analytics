@@ -1,23 +1,23 @@
-# Rainmaker Internal Analytics
+# Service Chatbot Analytics
 
-A production-style internal analytics dashboard for Rainmaker that reads from an existing Supabase database and presents filtered business data as summary cards, trends, and a detailed table.
+A production-style internal analytics dashboard that reads chatbot data from Supabase Postgres and presents filtered activity as summary cards, trends, and a detailed table.
 
 ## Stack
 
 - Next.js App Router
 - React + TypeScript
-- Supabase server-side access via API routes
+- Supabase Postgres access via `DATABASE_URL`
 - Recharts for dashboard visualizations
 - Docker-ready deployment layout for local containers and future Coolify deployment
 
 ## What This App Includes
 
-- Secure server-side Supabase access using environment variables
+- Secure server-side database access using environment variables
 - Dashboard filters for:
   - date range
-  - client
-  - campaign
-  - source/platform
+  - project
+  - channel
+  - role
   - free-text search
 - Summary cards for total and filtered metrics
 - Trend and source breakdown charts
@@ -37,11 +37,12 @@ app/
   components/                # UI building blocks
   lib/
     analytics/
-      schema.ts              # Table/column mapping for your real Supabase schema
+      schema.ts              # Column aliases and dashboard defaults
       service.ts             # Query + aggregation layer
       filters.ts             # Request filter parsing
       export.ts              # CSV serialization
-    supabase/server.ts       # Server-only Supabase client
+    postgres/server.ts       # Server-only Postgres client
+    supabase/server.ts       # Fallback Supabase API client
     utils/format.ts          # Shared formatting helpers
 ```
 
@@ -54,6 +55,10 @@ cp .env.example .env
 ```
 
 Required:
+
+- `DATABASE_URL`
+
+Optional fallback:
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -76,26 +81,32 @@ Dashboard tuning:
 - `ANALYTICS_AGGREGATION_SAMPLE_SIZE`
 - `ANALYTICS_EXPORT_LIMIT`
 
-## Important Schema Assumption
+## Current Schema Assumption
 
-The app is intentionally designed so unknown Supabase schema details are isolated in one place:
+The app is now tuned for a relational chat schema where each analytics row is a `chat_messages` row joined to `chat_sessions` and `projects`.
+
+The alias/default config still lives here:
 
 - [app/lib/analytics/schema.ts](/Users/devon/Documents/GitHub/service-chatbot-analytics/app/lib/analytics/schema.ts)
 
 If your real table or column names differ, update the environment variables first. If needed, you can also adjust defaults in that file.
 
-The current defaults assume a table roughly shaped like:
+The current defaults assume a dataset roughly shaped like:
 
 ```sql
-create table analytics_events (
-  id uuid primary key,
-  created_at timestamptz not null,
-  client_name text,
-  campaign_name text,
-  source_platform text,
-  message_text text,
-  external_id text
-);
+select
+  cm.id,
+  cm.created_at,
+  p.name as project_name,
+  p.slug as project_slug,
+  cs.channel,
+  cm.role,
+  cs.external_user_id,
+  cs.external_session_id,
+  cm.content
+from public.chat_messages cm
+join public.chat_sessions cs on cs.id = cm.session_id
+join public.projects p on p.id = cs.project_id;
 ```
 
 ## Local Development
@@ -153,9 +164,10 @@ For Coolify, you can point the service at this repo and either:
 1. use the provided `Dockerfile`, or
 2. use a Node deployment with `npm install && npm run build` and start command `npm run start`
 
-## Notes For Your Real Supabase Data
+## Notes For Your Real Data
 
-- The dashboard uses server-side API routes so the service-role key is never sent to the browser.
+- The dashboard uses server-side API routes so the database URL is never sent to the browser.
+- `DATABASE_URL` takes priority when present.
 - Filter dropdown options are sampled from recent records.
 - Trend and summary calculations are based on the configured aggregation sample size.
 - CSV exports respect `ANALYTICS_EXPORT_LIMIT` to prevent runaway payloads.

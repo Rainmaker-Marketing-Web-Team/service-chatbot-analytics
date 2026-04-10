@@ -1,21 +1,24 @@
 export const analyticsSchema = {
-  // Keep your real Supabase table and column names configurable through env vars
-  // so the rest of the application can stay stable across schema changes.
-  tableName: process.env.SUPABASE_ANALYTICS_TABLE ?? "analytics_events",
+  // Defaults are tuned for a chat analytics dataset backed by
+  // chat_messages joined to chat_sessions and projects.
+  tableName:
+    process.env.ANALYTICS_DATA_SOURCE_NAME ??
+    process.env.SUPABASE_ANALYTICS_TABLE ??
+    "chat_messages + chat_sessions + projects",
   columns: {
     id: process.env.SUPABASE_ANALYTICS_ID_COLUMN ?? "id",
     createdAt: process.env.SUPABASE_ANALYTICS_CREATED_AT_COLUMN ?? "created_at",
-    client: process.env.SUPABASE_ANALYTICS_CLIENT_COLUMN ?? "client_name",
-    campaign: process.env.SUPABASE_ANALYTICS_CAMPAIGN_COLUMN ?? "campaign_name",
-    source: process.env.SUPABASE_ANALYTICS_SOURCE_COLUMN ?? "source_platform",
+    client: process.env.SUPABASE_ANALYTICS_CLIENT_COLUMN ?? "project_name",
+    campaign: process.env.SUPABASE_ANALYTICS_CAMPAIGN_COLUMN ?? "channel",
+    source: process.env.SUPABASE_ANALYTICS_SOURCE_COLUMN ?? "role",
     search: [
-      process.env.SUPABASE_ANALYTICS_SEARCH_COLUMN_PRIMARY ?? "message_text",
-      process.env.SUPABASE_ANALYTICS_SEARCH_COLUMN_SECONDARY ?? "external_id"
+      process.env.SUPABASE_ANALYTICS_SEARCH_COLUMN_PRIMARY ?? "content",
+      process.env.SUPABASE_ANALYTICS_SEARCH_COLUMN_SECONDARY ?? "external_session_id"
     ].filter(Boolean)
   },
   dashboardColumns: (
     process.env.SUPABASE_ANALYTICS_TABLE_COLUMNS ??
-    "created_at,client_name,campaign_name,source_platform,message_text,external_id"
+    "created_at,project_name,project_slug,channel,role,external_user_id,external_session_id,content"
   )
     .split(",")
     .map((value) => value.trim())

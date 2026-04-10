@@ -27,9 +27,9 @@ export function FilterBar({ filters, onChange, options }: FilterBarProps) {
       </label>
 
       <label>
-        <span className="helper-text">Client</span>
+        <span className="helper-text">Project</span>
         <select value={filters.client} onChange={(event) => update("client", event.target.value)}>
-          <option value="">All clients</option>
+          <option value="">All projects</option>
           {options?.clients.map((client) => (
             <option key={client} value={client}>
               {client}
@@ -39,9 +39,9 @@ export function FilterBar({ filters, onChange, options }: FilterBarProps) {
       </label>
 
       <label>
-        <span className="helper-text">Campaign</span>
+        <span className="helper-text">Channel</span>
         <select value={filters.campaign} onChange={(event) => update("campaign", event.target.value)}>
-          <option value="">All campaigns</option>
+          <option value="">All channels</option>
           {options?.campaigns.map((campaign) => (
             <option key={campaign} value={campaign}>
               {campaign}
@@ -51,9 +51,9 @@ export function FilterBar({ filters, onChange, options }: FilterBarProps) {
       </label>
 
       <label>
-        <span className="helper-text">Source / platform</span>
+        <span className="helper-text">Role</span>
         <select value={filters.source} onChange={(event) => update("source", event.target.value)}>
-          <option value="">All sources</option>
+          <option value="">All roles</option>
           {options?.sources.map((source) => (
             <option key={source} value={source}>
               {source}
@@ -65,7 +65,7 @@ export function FilterBar({ filters, onChange, options }: FilterBarProps) {
       <label className="wide">
         <span className="helper-text">Text search</span>
         <input
-          placeholder="Search client, campaign, source, content, or identifiers"
+          placeholder="Search project, channel, role, user, session, or message content"
           type="search"
           value={filters.search}
           onChange={(event) => update("search", event.target.value)}

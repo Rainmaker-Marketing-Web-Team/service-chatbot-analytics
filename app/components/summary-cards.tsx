@@ -8,24 +8,24 @@ type SummaryCardsProps = {
 export function SummaryCards({ summary }: SummaryCardsProps) {
   const cards = [
     {
-      label: "Total records",
+      label: "Total messages",
       value: formatCompactNumber(summary.totalRecords),
-      note: "All rows in the configured Supabase table"
+      note: "All chat messages in the connected dataset"
     },
     {
-      label: "Filtered records",
+      label: "Filtered messages",
       value: formatCompactNumber(summary.filteredRecords),
-      note: `${formatPercent(summary.filterCoverage)} of total records`
+      note: `${formatPercent(summary.filterCoverage)} of total messages`
     },
     {
-      label: "Unique campaigns",
+      label: "Unique channels",
       value: formatCompactNumber(summary.uniqueCampaigns),
-      note: "Distinct campaigns in the filtered slice"
+      note: "Distinct chat channels in the filtered slice"
     },
     {
-      label: "Unique sources",
+      label: "Unique roles",
       value: formatCompactNumber(summary.uniqueSources),
-      note: "Platforms or channels present after filtering"
+      note: "Message roles present after filtering"
     }
   ];
 

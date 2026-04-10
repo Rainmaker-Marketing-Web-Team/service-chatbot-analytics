@@ -69,12 +69,12 @@ export function DashboardShell() {
         <section className="hero-panel">
           <div className="hero-grid">
             <div>
-              <div className="eyebrow">Rainmaker Internal Analytics</div>
-              <h1 className="hero-title">Operational visibility for chatbot and client campaign data.</h1>
+              <div className="eyebrow">Chatbot Analytics</div>
+              <h1 className="hero-title">Operational visibility across projects, sessions, and messages.</h1>
               <p className="hero-copy">
-                Filter records by date, client, campaign, source, and free-text terms, then explore the data through
-                summary cards, trends, and detailed rows. The dashboard is wired for Supabase via server-side API routes
-                so credentials stay off the client.
+                Filter message activity by date, project, channel, role, and free-text terms, then explore the dataset
+                through summary cards, trends, and detailed rows. The dashboard reads your database server-side so
+                credentials stay off the client.
               </p>
             </div>
             <div className="stats-inline">
@@ -88,7 +88,7 @@ export function DashboardShell() {
               </div>
               <div className="inline-stat">
                 <span>Schema target</span>
-                <strong className="code-label">{data?.meta.tableName ?? "analytics_events"}</strong>
+                <strong className="code-label">{data?.meta.tableName ?? "chat_messages + chat_sessions + projects"}</strong>
               </div>
             </div>
           </div>
@@ -99,7 +99,7 @@ export function DashboardShell() {
             <div>
               <div className="kicker">Filters</div>
               <p className="helper-text" style={{ margin: "6px 0 0" }}>
-                Point the schema config at your real Supabase table and columns, then the rest of the app can stay as-is.
+                This view is configured around message rows enriched with related session and project fields.
               </p>
             </div>
             <div className="filter-actions">
@@ -126,9 +126,9 @@ export function DashboardShell() {
                 <div className="stack-row" style={{ justifyContent: "space-between", marginBottom: 18 }}>
                   <div>
                     <div className="kicker">Trend View</div>
-                    <h2 style={{ margin: "4px 0 0" }}>Record volume over time</h2>
+                    <h2 style={{ margin: "4px 0 0" }}>Message volume over time</h2>
                   </div>
-                  <span className="helper-text">{formatCompactNumber(data.summary.filteredRecords)} filtered rows</span>
+                  <span className="helper-text">{formatCompactNumber(data.summary.filteredRecords)} filtered messages</span>
                 </div>
                 <AnalyticsCharts timeline={data.timeline} sourceBreakdown={data.sourceBreakdown} />
               </div>
@@ -138,24 +138,24 @@ export function DashboardShell() {
                 <h2 style={{ margin: "4px 0 14px" }}>Filter impact</h2>
                 <div className="summary-grid" style={{ gridTemplateColumns: "1fr", marginBottom: 16 }}>
                   <div className="summary-card">
-                    <span>Total records</span>
+                    <span>Total messages</span>
                     <strong>{formatCompactNumber(data.summary.totalRecords)}</strong>
-                    <span>Across the configured source table</span>
+                    <span>Across the connected chat dataset</span>
                   </div>
                   <div className="summary-card">
-                    <span>Filtered records</span>
+                    <span>Filtered messages</span>
                     <strong>{formatCompactNumber(data.summary.filteredRecords)}</strong>
                     <span>Matching the current filters and search query</span>
                   </div>
                   <div className="summary-card">
-                    <span>Unique clients</span>
+                    <span>Unique projects</span>
                     <strong>{formatCompactNumber(data.summary.uniqueClients)}</strong>
                     <span>Within the filtered result set</span>
                   </div>
                 </div>
                 <div className="notice">
-                  Update the schema mapping in <span className="code-label">app/lib/analytics/schema.ts</span> to match your
-                  actual Supabase table and column names.
+                  <span className="code-label">DATABASE_URL</span> now takes priority and queries your joined chat schema
+                  directly. The older Supabase table mapping remains available as a fallback.
                 </div>
               </div>
             </section>
@@ -166,7 +166,7 @@ export function DashboardShell() {
                   <div className="kicker">Detailed Rows</div>
                   <h2 style={{ margin: "4px 0 6px" }}>Filtered dataset preview</h2>
                   <p className="helper-text" style={{ margin: 0 }}>
-                    Showing the most recent {formatCompactNumber(data.rows.length)} rows with live server-side filters.
+                    Showing the most recent {formatCompactNumber(data.rows.length)} messages with live server-side filters.
                   </p>
                 </div>
                 <div className="table-actions">

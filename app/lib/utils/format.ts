@@ -35,6 +35,10 @@ export function formatCellValue(value: unknown) {
     return "-";
   }
 
+  if (value instanceof Date) {
+    return format(value, "MMM d, yyyy HH:mm");
+  }
+
   if (typeof value === "number") {
     return new Intl.NumberFormat("en").format(value);
   }

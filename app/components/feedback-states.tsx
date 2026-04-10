@@ -19,19 +19,6 @@ export function LoadingState() {
   );
 }
 
-export function EmptyState() {
-  return (
-    <div className="state-shell">
-      <div>
-        <h3 style={{ marginBottom: 6 }}>No records match the current filters</h3>
-        <p className="helper-text" style={{ margin: 0 }}>
-          Adjust the date range, search query, or filter selections to broaden the result set.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <section className="surface-panel">
